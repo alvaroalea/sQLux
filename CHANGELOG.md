@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 ### Added
+- QSound with more than 768K of RAM: the 16K block (8K ROM + I/O) is moved to the first free block between RAMTOP and the end of the reserved memory above it, with a warning, instead of disabling the card
+- `QLIONT_AY` option: AY-3-8910 sound chip of the QLIONT, the QSound emulation without ROM, with the control register at $80002A, the data register at $800028 and a 2.5 MHz clock
 - Cycle counted CPU timing: every instruction charges its real 68008 cycle cost, and `SPEED = 1` is now the 7.5 MHz clock of an original QL
 - Exact DIVU and DIVS timing when the divisor is a register, following the algorithm by Jorge Cwik
 - `CPU_TIMING` option to use 68000 (16 bit bus) instruction timings
