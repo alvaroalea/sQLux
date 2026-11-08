@@ -62,14 +62,45 @@ static int is_hw(uint32_t addr)
 // QSound is only mapped when its ROM is loaded (QSROM) and the RAM does not
 // reach its address space (see emulator_init.c)
 int qsound_mapped = 0;
+// Base of the 16K QSound block: 8K of ROM followed by the I/O registers
+uint32_t qsound_base = 0x000C0000;
 
-// Check if address belongs to QSound space ($C0000 - $C3FFF)
+// End of the memory area reserved for the emulated QL, see mem_limit_for()
+uint32_t mem_limit = 0x00100000;
+
+// The area reserved above RTOP is where expansions such as QSound live. It
+// is 1M for RTOP < 1M, and RTOP + 256K otherwise, but it never crosses a
+// power of two boundary (1M, 2M, 4M, 8M, 16M): it ends there instead. A RTOP
+// that is itself a boundary has no area at all.
+uint32_t mem_limit_for(uint32_t rtop)
+{
+	if (rtop < 0x00100000)
+		return 0x00100000;
+	if ((rtop & (rtop - 1)) == 0)
+		return rtop;
+
+	uint32_t boundary = 0x00100000;
+	while (boundary < rtop)
+		boundary <<= 1;
+
+	uint32_t limit = rtop + 0x00040000;
+	return limit > boundary ? boundary : limit;
+}
+
+// Check if address is a QSound register ($2000 / $3000 from the base)
 static inline int is_qsound(uint32_t addr)
 {
-	uint32_t a = addr & 0xFFFF;
-	return qsound_mapped &&
-	       ((a & 0xF000) == 0x2000 || (a & 0xF000) == 0x3000) &&
-	       ((addr & 0xFF0000) == 0x0C0000);
+	uint32_t o = addr - qsound_base;
+	return qsound_mapped && o < 0x4000 &&
+	       ((o & 0xF000) == 0x2000 || (o & 0xF000) == 0x3000);
+}
+
+// QLIONT AY registers ($800028 data, $80002A control), only with QLIONT_AY = 1
+int qliont_ay_mapped = 0;
+
+static inline int is_qliont_ay(uint32_t addr)
+{
+	return qliont_ay_mapped && (addr - QLIONT_AY_BASE) < 4;
 }
 
 // QIMSI registers in the ROM port, only when MOUSE = QIMSI
@@ -100,7 +131,11 @@ rw8 ReadByte(aw32 addr)
 
 	// QSound register read hook
 	if (is_qsound(addr)) {
-		return qsound_read_byte(addr);
+		return qsound_read_byte(addr - qsound_base);
+	}
+
+	if (is_qliont_ay(addr)) {
+		return qliont_ay_read_byte(addr - QLIONT_AY_BASE);
 	}
 
 	// Internal hardware (ZX8301 / ZX8302 IPC)
@@ -109,8 +144,8 @@ rw8 ReadByte(aw32 addr)
 		return ReadHWByte(addr);
 	}
 
-	// Expansion ROM space ($C0000 - $CFFFF)
-	if (addr >= 0x000C0000 && addr < 0x00100000) {
+	// Reserved area above the RAM, expansion ROMs live here
+	if (addr >= RTOP && addr < mem_limit) {
 		return *((w8 *)memBase + addr);
 	}
 
@@ -145,7 +180,13 @@ rw16 ReadWord(aw32 addr)
 
 	// QSound register read hook
 	if (is_qsound(addr)) {
-		return ((rw16)qsound_read_byte(addr) << 8) | qsound_read_byte(addr + 1);
+		return ((rw16)qsound_read_byte(addr - qsound_base) << 8) |
+		       qsound_read_byte(addr - qsound_base + 1);
+	}
+
+	if (is_qliont_ay(addr)) {
+		return ((rw16)qliont_ay_read_byte(addr - QLIONT_AY_BASE) << 8) |
+		       qliont_ay_read_byte(addr - QLIONT_AY_BASE + 1);
 	}
 
 	// Internal hardware (ZX8301 / ZX8302 IPC)
@@ -154,8 +195,8 @@ rw16 ReadWord(aw32 addr)
 		return ((w16)ReadHWWord(addr));
 	}
 
-	// Expansion ROM space ($C0000 - $CFFFF)
-	if (addr >= 0x000C0000 && addr < 0x00100000) {
+	// Reserved area above the RAM, expansion ROMs live here
+	if (addr >= RTOP && addr < mem_limit) {
 		return (w16)RW((w16 *)((Ptr)memBase + addr));
 	}
 
@@ -185,7 +226,7 @@ rw32 ReadLong(aw32 addr)
 		return ((rw32)ReadWord(addr) << 16) | (uint16_t)ReadWord(addr + 2);
 	}
 
-	if (is_qsound(addr)) {
+	if (is_qsound(addr) || is_qliont_ay(addr)) {
 		return ((rw32)ReadWord(addr) << 16) | (uint16_t)ReadWord(addr + 2);
 	}
 
@@ -194,7 +235,7 @@ rw32 ReadLong(aw32 addr)
 		return ((w32)ReadHWLong(addr));
 	}
 
-	if (addr >= 0x000C0000 && addr < 0x00100000) {
+	if (addr >= RTOP && addr < mem_limit) {
 		return (w32)RL((Ptr)memBase + addr);
 	}
 
@@ -220,7 +261,12 @@ void WriteByte(aw32 addr, aw8 d)
 	}
 
 	if (is_qsound(addr)) {
-		qsound_write_byte(addr, d);
+		qsound_write_byte(addr - qsound_base, d);
+		return;
+	}
+
+	if (is_qliont_ay(addr)) {
+		qliont_ay_write_byte(addr - QLIONT_AY_BASE, d);
 		return;
 	}
 
@@ -259,8 +305,14 @@ void WriteWord(aw32 addr,aw16 d)
 	}
 
 	if (is_qsound(addr)) {
-		qsound_write_byte(addr, (uint8_t)(d >> 8));
-		qsound_write_byte(addr + 1, (uint8_t)d);
+		qsound_write_byte(addr - qsound_base, (uint8_t)(d >> 8));
+		qsound_write_byte(addr - qsound_base + 1, (uint8_t)d);
+		return;
+	}
+
+	if (is_qliont_ay(addr)) {
+		qliont_ay_write_byte(addr - QLIONT_AY_BASE, (uint8_t)(d >> 8));
+		qliont_ay_write_byte(addr - QLIONT_AY_BASE + 1, (uint8_t)d);
 		return;
 	}
 
@@ -294,7 +346,7 @@ void WriteLong(aw32 addr,aw32 d)
 		return;
 	}
 
-	if (is_qsound(addr)) {
+	if (is_qsound(addr) || is_qliont_ay(addr)) {
 		WriteWord(addr, (uint16_t)(d >> 16));
 		WriteWord(addr + 2, (uint16_t)d);
 		return;

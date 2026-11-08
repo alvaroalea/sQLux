@@ -67,9 +67,10 @@ struct emuOpts emuOptions[] = {
 {"romport", "", "rom in QL rom port (0xC000 address)", EMU_OPT_CHAR, 0, NULL},
 {"romim", "", "rom in QL rom port (0xC000 address, legacy alias for romport)", EMU_OPT_CHAR, 0, NULL},
 {"mouse", "", "mouse emulation type: QIMSI = QIMSI PS/2 mouse registers in the ROM port ($FED0-$FEDF), disables ROMPORT; QIMI = QJump QIMI mouse interface ($1BF9C-$1BFBE). ICE = Eidersoft mICE bus mouse in the ROM port cartridge ($FFFE/$FFFF). THOR = CST Thor mouse port (MC6821 PIA at $FE040-$FE04F, repeated every $100 up to $FFF40). All replace the Pointer Environment mouse", EMU_OPT_CHAR, 0, NULL},
-{"qsrom", "", "rom in QSound expansion space (0xC0000 address)", EMU_OPT_CHAR, 0, NULL}, // <--- ¡ QSOUND !
+{"qsrom", "", "rom in QSound expansion space (0xC0000, or the first free 16K block above RAMTOP)", EMU_OPT_CHAR, 0, NULL}, // <--- ¡ QSOUND !
 {"qsfreq", "", "QSound frequency in hz", EMU_OPT_INT, 0, NULL}, // <--- ¡ QSOUND !
 {"qsstereo", "", "QSound stereo mode: 0 = Mono, 1 = Stereo ABC, 2 = Stereo ACB", EMU_OPT_INT, 1, NULL},
+{"qliont_ay", "", "QLIONT AY-3-8910 sound chip (1 = on, 0 = off): QSound without ROM, control register at $80002A and data at $800028, 2.5 MHz clock. Replaces QSROM", EMU_OPT_INT, 0, NULL},
 {"mdv1", "", "MDV1 cartridge image file (.mdv)", EMU_OPT_CHAR, 0, NULL},
 {"mdv2", "", "MDV2 cartridge image file (.mdv)", EMU_OPT_CHAR, 0, NULL},
 {"mdv_reverse", "", "Read MDV sectors in reverse order", EMU_OPT_INT, 0, NULL},
