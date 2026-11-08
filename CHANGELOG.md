@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 ### Added
+- `MOUSE = THOR` option: CST Thor mouse port, an MC6821 PIA at $FE040 (registers every 4 bytes, repeated in every 256 byte page of the last 8K, so $FF40 as used by ICE works; PA6 = 1 is left, PA7 = 1 is down) with three buttons, pulse and direction signals for each axis and the ZX8302 external interrupt, following the Thor expansion board schematic. Only enabled if RAMTOP is below 1016
+- `MOUSE = ICE` option: Eidersoft mICE bus mouse (3 buttons, quadrature signals) read at $FFFE/$FFFF of the ROM port cartridge. ROMPORT is kept; a warning is printed if the ROM is not the original mICE_21.rom
+- `MOUSE = QIMI` option: QJump QIMI mouse interface (buttons $1BF9C, movement $1BFBC, interrupt enable $1BFBE), signalling each step with the ZX8302 external interrupt. Replaces the Pointer Environment mouse injection
+- `MOUSE = QIMSI` option: QIMSI PS/2 mouse (with wheel) emulated through the read-only registers at $FED0-$FEDF, based on qimsi.js from QLRun. It replaces the Pointer Environment mouse injection and takes precedence over `ROMPORT`, which is disabled with a warning
 - Cycle counted CPU timing: every instruction charges its real 68008 cycle cost, and `SPEED = 1` is now the 7.5 MHz clock of an original QL
 - Exact DIVU and DIVS timing when the divisor is a register, following the algorithm by Jorge Cwik
 - `CPU_TIMING` option to use 68000 (16 bit bus) instruction timings
