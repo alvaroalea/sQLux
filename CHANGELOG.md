@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `MOUSE = QIMSI` option: QIMSI PS/2 mouse (with wheel) emulated through the read-only registers at $FED0-$FEDF, based on qimsi.js from QLRun. It replaces the Pointer Environment mouse injection and takes precedence over `ROMPORT`, which is disabled with a warning
 - QSound with more than 768K of RAM: the 16K block (8K ROM + I/O) is moved to the first free block between RAMTOP and the end of the reserved memory above it, with a warning, instead of disabling the card
 - `QLIONT_AY` option: AY-3-8910 sound chip of the QLIONT, the QSound emulation without ROM, with the control register at $80002A, the data register at $800028 and a 2.5 MHz clock
+- Sub-directories on the native disk images (`.img`, QL5A/QL5B) and on QXL.WIN files (`.win`) with TK2 or any level 2 driver: `MAKE_DIR` (FS.MKDIR), `RENAME` (FS.RENAME, also moving a file or a directory with its contents to another directory), and `DELETE` of empty directories. Files can be created in nested directories of floppies, which only worked in the root before, and the floppy file numbers are kept in the directory entry like a level 2 system does
 - Cycle counted CPU timing: every instruction charges its real 68008 cycle cost, and `SPEED = 1` is now the 7.5 MHz clock of an original QL
 - Exact DIVU and DIVS timing when the divisor is a register, following the algorithm by Jorge Cwik
 - `CPU_TIMING` option to use 68000 (16 bit bus) instruction timings
@@ -27,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The speed limiter counts the emulated clock cycles actually executed instead of fixed chunks of instructions
 
 ### Fixed
+- QXL.WIN: a file created in a directory that already existed (made by a real QL) was put in the root, and was not found afterwards when it came after the directory in the root
+- With TK2, `DELETE` of a file that does not exist hung the emulator: TK2 reads A2 after the failed trap and the OS left there the pointer to the device driver, whose first word is never zero. A2 now comes back pointing at a zero word
+- Host directories (`DEVICE` without `qdos-fs`): `DELETE` removes empty directories and reports a directory with files in it as in use instead of ignoring the error
 - The main thread waits for SDL events instead of polling them in a busy loop, which kept a whole CPU core busy
 - CPU: exact flags, checked against the 68000 tests: undocumented V flag of ABCD, SBCD and NBCD; undocumented Z, V and C of CHK; DIVS and DIVU on overflow and division by zero; ASL.b with a count of 8; ROXL and ROXR with a count of 0 and in .l; LINK A7 and UNLK A7
 - CPU: word and long accesses to odd addresses raise an address error, as on the 68000, and the PC stacked is the one after the instruction, so that QDOS goes on (the Quantum Leap demo froze at the end of its wipe effect). The rest of the exception frame is not exact yet
